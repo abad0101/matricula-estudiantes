@@ -10,13 +10,13 @@ import {
   addDoc,
 } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
-import { PDFViewer } from "@react-pdf/renderer";
-import VistaPreviaPDF from "./VistaPreviaPDF";
+import jsPDF from "jspdf";
 
 const ListadoEstudiantes = () => {
   const [estudiantes, setEstudiantes] = useState([]);
   const [filtroGrado, setFiltroGrado] = useState("Todos");
   const [filtroGenero, setFiltroGenero] = useState("Todos");
+  const [filtroSeccion, setFiltroSeccion] = useState("Todos"); // Nuevo estado
   const [busquedaNombre, setBusquedaNombre] = useState("");
   const [mostrarListado, setMostrarListado] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
@@ -28,7 +28,6 @@ const ListadoEstudiantes = () => {
     genero: "Niño",
   });
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
 
   useEffect(() => {
     fetchEstudiantes();
@@ -38,7 +37,7 @@ const ListadoEstudiantes = () => {
     if (mostrarListado) {
       fetchEstudiantes();
     }
-  }, [filtroGrado, filtroGenero, busquedaNombre, mostrarListado]);
+  }, [filtroGrado, filtroGenero, filtroSeccion, busquedaNombre, mostrarListado]); // Actualiza dependencias
 
   const fetchEstudiantes = async () => {
     try {
@@ -49,6 +48,9 @@ const ListadoEstudiantes = () => {
       if (filtroGenero !== "Todos") {
         q = query(q, where("genero", "==", filtroGenero));
       }
+      if (filtroSeccion !== "Todos") { // Nuevo filtro
+        q = query(q, where("grupo", "==", filtroSeccion));
+      }
       const querySnapshot = await getDocs(q);
       const estudiantesData = querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -58,17 +60,6 @@ const ListadoEstudiantes = () => {
     } catch (error) {
       console.error("Error al obtener estudiantes:", error);
     }
-  };
-
-  const calcularEdad = (fechaNacimiento) => {
-    const hoy = new Date();
-    const nacimiento = new Date(fechaNacimiento);
-    let edad = hoy.getFullYear() - nacimiento.getFullYear();
-    const mes = hoy.getMonth() - nacimiento.getMonth();
-    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
-      edad--;
-    }
-    return edad;
   };
 
   const handleEditar = async (id, campo, valor) => {
@@ -147,6 +138,28 @@ const ListadoEstudiantes = () => {
 
   const estudiantesFiltrados = filtrarPorNombre(estudiantes);
   const estudiantesOrdenados = ordenarEstudiantes(estudiantesFiltrados);
+
+  const handleExportarPDF = () => {
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(18);
+    doc.text("Listado de Estudiantes", 10, 10);
+    doc.setFontSize(12);
+    doc.text("Nombre", 10, 20);
+    doc.text("Fecha de Nacimiento", 50, 20);
+    doc.text("Grado", 100, 20);
+    doc.text("Grupo", 120, 20);
+    doc.text("Género", 140, 20);
+    let yPos = 30;
+    estudiantesOrdenados.forEach((estudiante) => {
+      doc.text(estudiante.nombre, 10, yPos);
+      doc.text(new Date(estudiante.fechaNacimiento).toLocaleDateString(), 50, yPos);
+      doc.text(estudiante.grado, 100, yPos);
+      doc.text(estudiante.grupo, 120, yPos);
+      doc.text(estudiante.genero, 140, yPos);
+      yPos += 10;
+    });
+    doc.save("listado_estudiantes.pdf");
+  };
 
   return (
     <div className="card">
@@ -279,11 +292,19 @@ const ListadoEstudiantes = () => {
                 <option value="Niña">Niña</option>
               </select>
             </div>
+            <div>
+              <label>Filtrar por Sección:</label>
+              <select
+                value={filtroSeccion}
+                onChange={(e) => setFiltroSeccion(e.target.value)}
+              >
+                <option value="Todos">Todos</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+              </select>
+            </div>
           </div>
-          <button
-            onClick={() => setMostrarVistaPrevia(true)}
-            className="pdf-export-button"
-          >
+          <button onClick={handleExportarPDF} className="pdf-export-button">
             Exportar a PDF
           </button>
           <table className="students-table">
@@ -291,7 +312,6 @@ const ListadoEstudiantes = () => {
               <tr>
                 <th>Nombre</th>
                 <th>Fecha de Nacimiento</th>
-                <th>Edad</th>
                 <th>Grado</th>
                 <th>Grupo</th>
                 <th>Género</th>
@@ -300,7 +320,6 @@ const ListadoEstudiantes = () => {
             </thead>
             <tbody>
               {estudiantesOrdenados.map((estudiante) => {
-                const edad = calcularEdad(estudiante.fechaNacimiento);
                 return (
                   <tr key={estudiante.id}>
                     <td>
@@ -329,7 +348,6 @@ const ListadoEstudiantes = () => {
                         new Date(estudiante.fechaNacimiento).toLocaleDateString()
                       )}
                     </td>
-                    <td>{edad}</td>
                     <td>
                       {editandoId === estudiante.id ? (
                         <select
@@ -413,54 +431,6 @@ const ListadoEstudiantes = () => {
             </tbody>
           </table>
         </>
-      )}
-      {mostrarVistaPrevia && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              width: "90%",
-              height: "90%",
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "10px",
-              overflow: "auto",
-            }}
-          >
-            <button
-              onClick={() => setMostrarVistaPrevia(false)}
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                padding: "10px",
-                background: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer",
-              }}
-            >
-              Cerrar
-            </button>
-            <h2 style={{ textAlign: "center" }}>Vista Previa del PDF</h2>
-            <PDFViewer style={{ width: "100%", height: "80%" }}>
-              <VistaPreviaPDF estudiantes={estudiantesOrdenados} />
-            </PDFViewer>
-          </div>
-        </div>
       )}
     </div>
   );
