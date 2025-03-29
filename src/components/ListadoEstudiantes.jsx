@@ -16,7 +16,7 @@ const ListadoEstudiantes = () => {
   const [estudiantes, setEstudiantes] = useState([]);
   const [filtroGrado, setFiltroGrado] = useState("Todos");
   const [filtroGenero, setFiltroGenero] = useState("Todos");
-  const [filtroSeccion, setFiltroSeccion] = useState("Todos"); // Nuevo estado
+  const [filtroSeccion, setFiltroSeccion] = useState("Todos"); 
   const [busquedaNombre, setBusquedaNombre] = useState("");
   const [mostrarListado, setMostrarListado] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
@@ -37,7 +37,7 @@ const ListadoEstudiantes = () => {
     if (mostrarListado) {
       fetchEstudiantes();
     }
-  }, [filtroGrado, filtroGenero, filtroSeccion, busquedaNombre, mostrarListado]); // Actualiza dependencias
+  }, [filtroGrado, filtroGenero, filtroSeccion, busquedaNombre, mostrarListado]); 
 
   const fetchEstudiantes = async () => {
     try {
@@ -48,7 +48,7 @@ const ListadoEstudiantes = () => {
       if (filtroGenero !== "Todos") {
         q = query(q, where("genero", "==", filtroGenero));
       }
-      if (filtroSeccion !== "Todos") { // Nuevo filtro
+      if (filtroSeccion !== "Todos") { 
         q = query(q, where("grupo", "==", filtroSeccion));
       }
       const querySnapshot = await getDocs(q);
